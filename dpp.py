@@ -77,7 +77,10 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
              logging.debug('adjusting distribution for each client')
              extra_sample=np.random.multivariate_normal(mean=means_clss_wise[i][k], cov=sigma_clss_wise[i][k], size=difference_sample[k]).astype(np.float32)
              for sample in extra_sample:
-                samples_tensor=torch.as_tensor(sample).reshape(shape).float()
+                if(dataset=='shakespeare'):
+                  samples_tensor=torch.as_tensor(sample)
+                else:
+                  samples_tensor=torch.as_tensor(sample).reshape(shape).float()
                 xs_final.append(samples_tensor)
              extra_ys=np.full((difference_sample[k]),i)
              ys_final=np.concatenate([ys_final,extra_ys])
@@ -94,7 +97,7 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         logging.debug(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
         print(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
 
-   with open(f'/scratch/sagnikg.scee.iitmandi/fl_dpp/data/balanced/{split}/{dataset}_balanced_100_clients.json', 'wb') as f:
+   with open(f'..data/balanced/{split}/{dataset}_balanced_100_clients.json', 'wb') as f:
      pickle.dump(data_dict, f)
 
 def get_gmm_clusters(X_class_wise,Y_class_wise,k_clusters):
