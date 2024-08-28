@@ -14,10 +14,16 @@ def get_partitions(x_train,y_train, P, P_select,k_clusters):
     party = np.zeros(y_train.shape)
     for i,c in enumerate(classes):
         class_idx = np.where(y_train == c)[0]
+        if (len(class_idx) < k_clusters):
+         x_train_extra=np.concatenate([x_train[class_idx]]*k_clusters)
+         x_train=np.concatenate([x_train,x_train_extra])
+         y_train_extra=np.concatenate([y_train[class_idx]]*k_clusters)
+         y_train=np.concatenate([y_train,y_train_extra])
+         party_extra = np.zeros(y_train_extra.shape)
+         party=np.concatenate([party,party_extra])
+        class_idx = np.where(y_train == c)[0]
         c_data.append(x_train[class_idx])
         print(c_data[i].shape)
-        if (len(c_data[i]) < k_clusters):
-         continue
         start_time = time.time()
         kmeanst = KMeans(n_clusters = k_clusters, init='k-means++', max_iter = 10, random_state = 42)
         kmeanst.fit(c_data[i])
@@ -29,6 +35,7 @@ def get_partitions(x_train,y_train, P, P_select,k_clusters):
             P_selected = np.random.choice(range(P),P_select,replace=False)
             P_ratio = np.random.rand(P_select)
             P_ratio=P_ratio/np.sum(P_ratio)
+            ## 
             P_ratio=np.round(len(cluster_idx)*P_ratio)
             start_idx=0
             end_idx=0

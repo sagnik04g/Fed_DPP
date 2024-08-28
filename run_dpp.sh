@@ -1,0 +1,10 @@
+shape_mnist=(1,28,28)
+shape_femnist=(1,28,28)
+shape_cifar10=(1,32,32,3)
+shape_celeba=(1,84,84,3)
+shape_shakespeare=(1,80)
+python dpp.py --file_path "./data/mnist_imbalanced_s=15.pickle" --split "train" --dataset "mnist" --min_sample 64 --shape $shape_mnist --k_clusters 10
+python dpp.py --file_path "./data/cifar10_imbalanced_s=15.pickle" --split "train" --dataset "cifar10" --min_sample 64 --shape $shape_cifar10 --k_clusters 10
+python dpp.py --file_path "./data/femnist_imbalanced_s=15.pickle" --split "train" --dataset "femnist" --min_sample 64 --shape $shape_femnist --k_clusters 10
+python dpp.py --file_path "./data/celeba_imbalanced_s=15.pickle" --split "train" --dataset "celeba" --min_sample 64 --shape $shape_celeba --k_clusters 10
+python dpp.py --file_path "./data/shakespeare_imbalanced_s=15.pickle" --split "train" --dataset "shakespeare" --min_sample 64 --shape $shape_shakespeare --k_clusters 10
