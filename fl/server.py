@@ -177,7 +177,7 @@ def FedAwS(global_model: torch.nn.Module,
     logits_optim.step()
     logits_optim.zero_grad()
 
-# TurboSVM-FL
+
 def Ours(global_model: torch.nn.Module, 
          client_models: list[torch.nn.Module], 
          client_weights: list[int], 
@@ -191,7 +191,6 @@ def Ours(global_model: torch.nn.Module,
          spreadout: bool,
          ) -> None:
     """
-    Federated learning algorithm TurboSVM-FL.
 
     Arguments:
         global_model (torch.nn.Module): pytorch model (global model).
