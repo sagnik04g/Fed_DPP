@@ -6,8 +6,8 @@ import argparse
 from datetime import datetime
 
 # self-defined functions
-from client import get_clients
-from models import CNN_femnist, CNN_celeba, LSTM_shakespeare, Resnet18_mnist, Resnet50_cifar10
+from fl.client import get_clients
+from fl.models import CNN_femnist, CNN_celeba, LSTM_shakespeare, Resnet18_mnist, Resnet50_cifar10
 from data_preprocessing import get_data_dict_mnist_femnist, get_data_dict_cifar10, get_data_dict_celeba, get_data_dict_shakespeare
 
 def seed(seed: int) -> None:
@@ -41,9 +41,7 @@ def Args() -> argparse.Namespace:
     # parser.add_argument('--celeba_image_path' , type = str, default = '/scratch/sagnikg.scee.iitmandi/FL_datasets/leaf/data/celeba/data/raw/img_align_celeba/', help = 'celeba image dir path')
     # parser.add_argument('--shakespeare_train_path', type = str, default = '/scratch/sagnikg.scee.iitmandi/fl_dpp/data/imbalanced/train/shakespearer_data_train_invdpp_s=5.pickle', help = 'shakespeare train json path')
     # parser.add_argument('--shakespeare_test_path' , type = str, default = '/scratch/sagnikg.scee.iitmandi/fl_dpp/data/imbalanced/test/shakespearer_data_test_invdpp_s=5.pickle'  , help = 'shakespeare test json path')
-    # parser.add_argument('--covid19_train_path', type = str, default = '../CC19/train/', help = 'covid19 train dir path')
-    # parser.add_argument('--covid19_test_path' , type = str, default = '../CC19/test/' , help = 'covid19 test dir path')
-    # parser.add_argument('--mnist_train_path', type = str, default = '/scratch/sagnikg.scee.iitmandi/fl_dpp/data/imbalanced/train/mnist_data_train_invdpp_s=5.pickle', help = 'femnist train json path')
+     # parser.add_argument('--mnist_train_path', type = str, default = '/scratch/sagnikg.scee.iitmandi/fl_dpp/data/imbalanced/train/mnist_data_train_invdpp_s=5.pickle', help = 'femnist train json path')
     # parser.add_argument('--mnist_test_path' , type = str, default = '/scratch/sagnikg.scee.iitmandi/fl_dpp/data/imbalanced/test/mnist_data_test_invdpp_s=5.pickle'  , help = 'femnist test json path')
     # parser.add_argument('--cifar10_train_path' , type = str, default = 'data/cifar10_data_train_invdpp_s=5.pickle', help = 'cifar10 train json path')
     # parser.add_argument('--cifar10_test_path'  , type = str, default = 'data/cifar10_data_test_invdpp_s=5.pickle'  , help = 'cifar10 test json path')
@@ -53,7 +51,7 @@ def Args() -> argparse.Namespace:
     parser.add_argument('-d', '--default', type = bool, default = True, action = argparse.BooleanOptionalAction, help = 'whether to use default hyperparmeter settings (batch size and learning rates)')
 
     # general parameters for both non-FL and FL
-    parser.add_argument('-p', '--project', type = str, default = 'femnist', help = 'project name, from femnist, celeba, shakespeare, covid19')
+    parser.add_argument('-p', '--project', type = str, default = 'femnist', help = 'project name, from femnist, celeba, shakespeare')
     parser.add_argument('--name', type = str, default = 'name', help = 'wandb run name')
     parser.add_argument('-seed', '--seed', type = int, default = 0, help = 'random seed')
     parser.add_argument('--min_sample', type = int, default = 64, help = 'minimal amount of samples per client')
@@ -119,10 +117,6 @@ def get_clients_and_model(args: argparse.Namespace) -> tuple[list[object], list[
             test_data_dict  = get_data_dict_shakespeare(args.test_path,args.min_sample)
             model = LSTM_shakespeare(args)
 
-        # case 'covid19':
-        #     train_data_dict = get_data_dict_covid19(args.covid19_train_path, args.min_sample)
-        #     test_data_dict  = get_data_dict_covid19(args.covid19_test_path , args.min_sample)
-        #     model = Resnet50_covid19(args)
 
         case 'mnist':
             train_data_dict = get_data_dict_mnist_femnist(args.train_path,args.min_sample)
@@ -201,10 +195,6 @@ def default_setting(args: argparse.Namespace) -> None:
             args.global_lr  = 1e-2
             args.logits_lr  = 1e-1
 
-        # case 'covid19':
-        #     args.min_sample = 64
-        #     args.global_bs  = 64
-        #     args.client_bs  = 64
                 
         case _:
             raise Exception("wrong project:", args.project)
