@@ -24,14 +24,9 @@ def get_data_dict_mnist(json_path: str, min_sample: int = 64, image_size: int = 
 
     if not os.path.exists(json_path):
         raise Exception("file doesnt exist:", json_path)
-
-    # if json_path.endswith(".json"):
-    #  with open(json_path, 'r') as f:
-    #     tmp_data_dict = json.load(f)
-    # else:
+    
     with open(json_path, 'rb') as f:
         tmp_data_dict = pickle.load(f)
-
     final_data_dict={}
     for user,data in tmp_data_dict.items():
         if len(data['y']) < min_sample:
@@ -62,9 +57,6 @@ def get_data_dict_femnist(json_path: str, min_sample: int = 64, image_size: int 
     Returns:
         data_dict (dict[str, dict[str, torch.Tensor]]): a dictionary that contains all data with user id as keys. Each value entry is also a dictionary with 'x', 'y' as keys and data tensor as values.
     """
-    t=transforms.Compose(
-        [transforms.Pad(18),
-         transforms.Resize((64, 64)), transforms.ToTensor()])
 
     if not os.path.exists(json_path):
         raise Exception("file doesnt exist:", json_path)
@@ -82,12 +74,11 @@ def get_data_dict_femnist(json_path: str, min_sample: int = 64, image_size: int 
          continue
 
         ys_final = data['y']
-        xs_final=torch.as_tensor(data['x']).reshape(len(data['y']),1,image_size,image_size)
+        xs_final=torch.as_tensor(data['x']).reshape(len(data['y']),1,image_size,image_size).float()
         ys_final=torch.as_tensor(ys_final).long()
         final_data_dict[user]={'x' : xs_final,'y' : ys_final}
 
     return final_data_dict
-
 
 def get_data_dict_cifar10(json_path: str, min_sample: int = 64, image_size: int = 32) -> dict[str, dict[str, torch.Tensor]]:
     """
@@ -102,20 +93,16 @@ def get_data_dict_cifar10(json_path: str, min_sample: int = 64, image_size: int 
         data_dict (dict[str, dict[str, torch.Tensor]]): a dictionary that contains all data with user id as keys. Each value entry is also a dictionary with 'x', 'y' as keys and data tensor as values.
     """
     t=transforms.Compose(
-        [transforms.Pad(16),  # Add padding on all sides
-         transforms.Resize((64, 64)),
+        [
+         # transforms.Pad(16),  # Add padding on all sides
+         # transforms.Resize((64, 64)),
          transforms.ToTensor()])
 
     if not os.path.exists(json_path):
         raise Exception("file doesnt exist:", json_path)
     
-    if json_path.endswith(".json"):
-     with open(json_path, 'r') as f:
-        tmp_data_dict = json.load(f)
-    else:
-     with open(json_path, 'rb') as f:
+    with open(json_path, 'rb') as f:
         tmp_data_dict = pickle.load(f)
-
     final_data_dict={}
     for user,data in tmp_data_dict.items():
         if len(data['y']) < min_sample:
@@ -149,14 +136,9 @@ def get_data_dict_shakespeare(json_path: str, min_sample: int = 64, seq_len: int
 
     if not os.path.exists(json_path):
         raise Exception("file doesnt exist:", json_path)
-
-    if json_path.endswith(".json"):
-     with open(json_path, 'r') as f:
-        tmp_data_dict = json.load(f)
-    else:
-     with open(json_path, 'rb') as f:
-        tmp_data_dict = pickle.load(f) 
-   
+    
+    with open(json_path, 'rb') as f:
+        tmp_data_dict = pickle.load(f)
     final_data_dict={}
     for user,data in tmp_data_dict.items():
         if len(data['y']) < min_sample:
@@ -167,8 +149,8 @@ def get_data_dict_shakespeare(json_path: str, min_sample: int = 64, seq_len: int
             assert(len(x) == seq_len)
             x = torch.as_tensor(x)
             xs_final.append(x)
-        ys_final = data['y']
 
+        ys_final = data['y']
         xs_final=torch.stack(xs_final)
         ys_final=torch.as_tensor(ys_final).long()
         final_data_dict[user]={'x' : xs_final,'y' : ys_final}
@@ -191,13 +173,8 @@ def get_data_dict_celeba(json_path: str, min_sample: int = 1, image_size: int =8
     if not os.path.exists(json_path):
         raise Exception("file doesnt exist:", json_path)
     
-    if json_path.endswith(".json"):
-     with open(json_path, 'r') as f:
-        tmp_data_dict = json.load(f)
-    else:
-     with open(json_path, 'rb') as f:
+    with open(json_path, 'rb') as f:
         tmp_data_dict = pickle.load(f)
-
     final_data_dict={}
     for user,data in tmp_data_dict.items():
         if len(data['y']) < min_sample:

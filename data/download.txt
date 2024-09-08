@@ -1,0 +1,4 @@
+Download LEAF dataset from "https://github.com/TalwalkarLab/leaf"
+Save the json file for train and test set under the "data" folder
+Run the imbalanced_set.py code to generate synthetic federated dataset
+Run dpp.py

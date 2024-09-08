@@ -7,6 +7,7 @@ from PIL import Image
 from sklearn.mixture import GaussianMixture
 import pickle
 import argparse
+from sklearn.decomposition import PCA
 
 
 def Args() -> argparse.Namespace:
@@ -20,11 +21,11 @@ def Args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     
     # path parameters
-    parser.add_argument('--file_path', type = str, default = '../data/imbalanced/train/femnist_data_train_invdpp_s=25.pickle', help = 'femnist train json path')
+    parser.add_argument('--file_path', type = str, default = '../data/imbalanced/test/celeba_data_test_invdpp_s=50.pickle', help = 'celeba train json path')
     parser.add_argument('--split' , type = str, default = 'train'  , help = 'dataset split')
-    parser.add_argument('--dataset' , type = str, default = 'femnist'  , help = 'dataset name')
+    parser.add_argument('--dataset' , type = str, default = 'celeba'  , help = 'dataset name')
     parser.add_argument('--min_sample' , type = int, default = '64'  , help = 'dataset')
-    parser.add_argument('--shape' , type = tuple, default = (1,28,28)  , help = 'data x shape')
+    parser.add_argument('--shape' , type = tuple, default = (1,84,84,3)  , help = 'data x shape')
     parser.add_argument('--k_clusters' , type = int, default = '10'  , help = 'gmm components')
         
     args = parser.parse_args()
@@ -39,9 +40,9 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
      data_dict=pickle.load(f)
      for user,data in data_dict.items():
       data_x=data['x']
-      all_xs.append(data_x)
+      all_xs.append(np.array(data_x))
       data_y=data['y']
-      all_ys.append(data_y)
+      all_ys.append(np.array(data_y))
    
    if(file_path.endswith('.json')):
     with open(file_path,'r') as f:
@@ -54,10 +55,10 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
             all_xs.append(np.array(x))
         ys = np.array(data['user_data'][user]['y'])
         all_ys.append(ys)
-        
         data_dict[user] = {'x' : xs, 'y' : ys}
    
    x_train = np.concatenate(all_xs,axis=0)
+   x_train = x_train.reshape(len(x_train),shape[1],shape[2])
    y_train = np.concatenate(all_ys,axis=0)
    classes=np.unique(y_train)
    print(x_train.shape,y_train.shape)
@@ -74,7 +75,11 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         # xs_flattened,ys_flattened=np.array(data['user_data'][user]['x']),np.array(data['user_data'][user]['y'])
         xs_final = []
         for x in data['x']:
-            x = np.array(x).reshape(shape)
+            if dataset=='shakespeare':
+              x=np.array(x,dtype=np.int64)
+            else:
+              x=np.array(x)
+            x = x.reshape(shape)
             xs_final.append(x)
         ys_final = data['y']
 
@@ -119,7 +124,11 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
              logger.debug('adjusting distribution for each client')
              extra_sample=np.random.multivariate_normal(mean=means_clss_wise[i][k], cov=sigma_clss_wise[i][k], size=difference_sample[k]).astype(np.float32)
              for sample in extra_sample:
-                samples_tensor=np.array(sample).reshape(shape)
+                if(dataset=='shakespeare'):
+                 sample_list=[c if c<=79 or c>=0 else 0 for c in sample]
+                 samples_tensor=np.array(sample_list,dtype=np.int64).reshape(shape)
+                else:
+                 samples_tensor=np.array(sample).reshape(shape)
                 xs_final.append(samples_tensor)
              extra_ys=np.full((difference_sample[k]),clss)
              ys_final=np.concatenate([ys_final,extra_ys])
@@ -136,7 +145,7 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         logger.debug(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
         print(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
 
-   with open(f'../data/balanced/{split}/{dataset}_balanced_100_clients_s=25.pickle', 'wb') as f:
+   with open(f'../data/balanced/{split}/{dataset}_balanced_100_clients.pickle', 'wb') as f:
      pickle.dump(data_dict, f)
 
 def get_gmm_clusters(X_class_wise,Y_class_wise,k_clusters):
@@ -147,9 +156,8 @@ def get_gmm_clusters(X_class_wise,Y_class_wise,k_clusters):
       if(len(x)<k_clusters):
         x=np.concatenate([x]*k_clusters)
       gmm.fit(x)
-      labels=gmm.predict(x)
       for cnt in range(k_clusters):
-        clusters.append(x[labels==cnt])
+        clusters.append(x[gmm.labels==cnt])
       means=gmm.means_
       covariances=gmm.covariances_
       weights=gmm.weights_

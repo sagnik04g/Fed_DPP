@@ -200,35 +200,68 @@ class Resnet18_mnist(torch.nn.Module):
         x = self.logits(h)
         return x, h
 
-class Resnet50_cifar10(torch.nn.Module):
-    """
-    (Obsolete.) Resnet model for Covid-19 dataset.
-    """
+# class Resnet50_cifar10(torch.nn.Module):
+#     """
+#     (Obsolete.) Resnet model for Covid-19 dataset.
+#     """
 
+#     def __init__(self, args: object, num_class: int = 10, freeze: bool = True) -> None:
+#         """
+#         Arguments:
+#             args (argparse.Namespace): parsed argument object.
+#             num_class (int): number of classes in the dataset.
+#             freeze (bool): (obsolete) whether conducting transfer learning or finetuning.
+#         """
+
+#         super(Resnet50_cifar10, self).__init__()
+
+#         if len(resnet50_list) == 0:
+#             resnet50 = torch.hub.load('pytorch/vision:v0.15.2', 'resnet50', weights = 'ResNet50_Weights.DEFAULT')
+#             resnet50.fc = torch.nn.Identity() # remove last FC layer
+#             for p in resnet50.parameters(): # freeze resnet50
+#                 p.requires_grad = False
+#             resnet50.to(device)
+#             resnet50_list.append(resnet50)
+#         assert(len(resnet50_list) == 1)
+        
+#         self.logits = torch.nn.Linear(in_features = 2048, out_features = num_class)
+        
+#         self.t = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616])
+
+
+#         self.optim = args.client_optim
+#         self.lr    = args.client_lr
+#         self.reuse_optim = args.reuse_optim
+#         self.optim_state = None
+
+#         self.binary = False
+
+#     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+#         """
+#         Arguments:
+#             x (torch.Tensor): input image tensor.
+        
+#         Returns:
+#             x (torch.Tensor): logits (not softmaxed yet).
+#             h (torch.Tensor): latent features (useful for tSNE plot and some FL algorithms).
+#         """
+
+#         resnet50 = resnet50_list[0]
+        
+#         # x is of shape (batch_size, 1, 224, 224)
+#         x = x.expand(-1, 3, -1, -1)
+#         x = self.t(x)
+#         h = resnet50(x)
+#         x = self.logits(h)
+#         return x, h
+class CIFAR10_CNN(nn.Module):
     def __init__(self, args: object, num_class: int = 10, freeze: bool = True) -> None:
-        """
-        Arguments:
-            args (argparse.Namespace): parsed argument object.
-            num_class (int): number of classes in the dataset.
-            freeze (bool): (obsolete) whether conducting transfer learning or finetuning.
-        """
-
-        super(Resnet50_cifar10, self).__init__()
-
-        if len(resnet50_list) == 0:
-            resnet50 = torch.hub.load('pytorch/vision:v0.15.2', 'resnet50', weights = 'ResNet50_Weights.DEFAULT')
-            resnet50.fc = torch.nn.Identity() # remove last FC layer
-            for p in resnet50.parameters(): # freeze resnet50
-                p.requires_grad = False
-            resnet50.to(device)
-            resnet50_list.append(resnet50)
-        assert(len(resnet50_list) == 1)
-        
-        self.logits = torch.nn.Linear(in_features = 2048, out_features = num_class)
-        
-        self.t = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2470, 0.2435, 0.2616])
-
-
+        super(CIFAR10_CNN, self).__init__()
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)  # Input channels = 3 (RGB)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(in_features=8 * 8 * 64, out_features=128)  # Calculate output size after convolutions
+        self.logits = nn.Linear(128, num_class)
         self.optim = args.client_optim
         self.lr    = args.client_lr
         self.reuse_optim = args.reuse_optim
@@ -236,24 +269,13 @@ class Resnet50_cifar10(torch.nn.Module):
 
         self.binary = False
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Arguments:
-            x (torch.Tensor): input image tensor.
-        
-        Returns:
-            x (torch.Tensor): logits (not softmaxed yet).
-            h (torch.Tensor): latent features (useful for tSNE plot and some FL algorithms).
-        """
-
-        resnet50 = resnet50_list[0]
-        
-        # x is of shape (batch_size, 1, 224, 224)
-        x = x.expand(-1, 3, -1, -1)
-        x = self.t(x)
-        h = resnet50(x)
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 8 * 8 * 64)  # Flatten the output of conv layers
+        h = F.relu(self.fc1(x))
         x = self.logits(h)
-        return x, h
+        return x,h
 
 
 class LSTM_shakespeare(torch.nn.Module):
@@ -271,7 +293,6 @@ class LSTM_shakespeare(torch.nn.Module):
         """
 
         super(LSTM_shakespeare, self).__init__()
-
         self.embedding = torch.nn.Embedding(num_embeddings = num_class, embedding_dim = embedding_dim)
         self.encoder   = torch.nn.LSTM(input_size = embedding_dim, hidden_size = hidden_size, num_layers = 2, batch_first = True)
         self.logits    = torch.nn.Linear(in_features = hidden_size, out_features = num_class)
@@ -292,7 +313,6 @@ class LSTM_shakespeare(torch.nn.Module):
             x (torch.Tensor): logits (not softmaxed yet).
             h (torch.Tensor): latent features (useful for tSNE plot and some FL algorithms).
         """
-
         x = self.embedding(x)
         x, (hn, cn) = self.encoder(x)
         h = x[:, -1, :]
@@ -314,8 +334,8 @@ def model_train(model: torch.nn.Module, data_loader: torch.utils.data.DataLoader
     # for resnet18
     if isinstance(model, Resnet18_mnist):
         resnet18_list[0].train()
-    if isinstance(model, Resnet50_cifar10):
-        resnet50_list[0].train()
+    # if isinstance(model, Resnet50_cifar10):
+    #     resnet50_list[0].train()
 
     model.train()
     optim = model.optim(model.parameters(), lr = model.lr)
@@ -359,8 +379,8 @@ def model_train_FedProx(model: torch.nn.Module, global_model: torch.nn.Module, d
     if isinstance(model, Resnet18_mnist):
         resnet18_list[0].train()
 
-    if isinstance(model, Resnet50_cifar10):
-        resnet50_list[0].train()
+    # if isinstance(model, Resnet50_cifar10):
+    #     resnet50_list[0].train()
 
     model.train()
     optim = model.optim(model.parameters(), lr = model.lr)
@@ -411,8 +431,8 @@ def model_train_MOON(model: torch.nn.Module, global_model: torch.nn.Module, data
     # for resnet18
     if isinstance(model, Resnet18_mnist):
         resnet18_list[0].train()
-    if isinstance(model, Resnet50_cifar10):
-        resnet50_list[0].train()
+    # if isinstance(model, Resnet50_cifar10):
+    #     resnet50_list[0].train()
 
     model.train()
     optim = model.optim(model.parameters(), lr = model.lr)
@@ -494,8 +514,8 @@ def model_eval(model: torch.nn.Module,
     # for resnet18
     if isinstance(model, Resnet18_mnist):
         resnet18_list[0].eval()
-    if isinstance(model, Resnet50_cifar10):
-        resnet50_list[0].train()
+    # if isinstance(model, Resnet50_cifar10):
+    #     resnet50_list[0].train()
 
     model.eval()
     epoch_labels   = []

@@ -5,7 +5,7 @@ import tqdm
 import copy
 from sklearn import svm
 import wandb
-from client import Client
+from fl.client import Client
 from models import model_eval, cal_metrics
 from utils import weighted_avg_params, weighted_avg
 from torchmetrics.functional import pairwise_cosine_similarity
