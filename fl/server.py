@@ -70,8 +70,8 @@ def federated_learning(args: object, train_clients: list[object], test_clients: 
         # global model aggregation
         eval(args.fed_agg)(global_model, client_models, client_weights, # basic FL parameters
                            global_optim, # for FedOpt (FedAdam and FedAMS)
-                           logits_optim, # for FedAwS and Ours
-                           current_global_epoch, args.global_epoch, args.class_C, args.base_agg, args.agg_svc, args.spreadout) # for ours
+                           logits_optim, # for FedAwS 
+                           current_global_epoch, args.global_epoch, args.class_C, args.base_agg, args.agg_svc, args.spreadout) 
         
         # stability
         for p in global_model.parameters():
@@ -176,111 +176,3 @@ def FedAwS(global_model: torch.nn.Module,
     # apply optimizer
     logits_optim.step()
     logits_optim.zero_grad()
-
-
-def Ours(global_model: torch.nn.Module, 
-         client_models: list[torch.nn.Module], 
-         client_weights: list[int], 
-         global_optim: torch.optim, 
-         logits_optim: torch.optim, 
-         current_global_epoch: int, 
-         num_global_epoch: int, 
-         class_C: int | float, 
-         base_agg: str, 
-         agg_svc: bool, 
-         spreadout: bool,
-         ) -> None:
-    """
-
-    Arguments:
-        global_model (torch.nn.Module): pytorch model (global model).
-        client_models (list[torch.nn.Module]): pytorch models (client models).
-        client_weights (list[int]): number of samples per client.
-        global_optim (torch.optim): pytorch optimizer for global model.
-        logits_optim (torch.optim): pytorch optimizer for logit layer of global model.
-        current_global_epoch (int): current global aggregation round.
-        num_global_epoch (int): total number of global aggregation rounds.
-        class_C (int|float): number of classes used to train SVM. Can be int (absolute value) or float (proportion).
-        base_agg (str): FL aggregation algorithm for encoder (all layers of global model but logit layer).
-        agg_svc (bool): whether to aggregate only client models that form support vectors or all client models.
-        spreadout (bool): whether to apply max-margin spread-out regularization or not.
-    """
-
-    # aggregate client models
-    assert(base_agg == 'FedAvg' or base_agg == 'FedOpt')
-    eval(base_agg)(global_model, client_models, client_weights, global_optim)
-    
-    # randomly select classes, whose embeddings will be updated using ours
-    num_class = global_model.logits.weight.shape[0]
-    if class_C <= 1.0: # proportion
-        num_update_class = min(max(math.floor(class_C * num_class), 2), num_class)
-    else: # class_C itself is num_update_class
-        num_update_class = min(class_C, num_class)
-    classes = np.random.choice(num_class, num_update_class, replace = False).tolist()
-    classes.sort() # must be sorted when more than 2 classes, as svm coefs are sorted based on class id
-    # print("number of SVC class:", num_update_class)
-    # print(classes)
-    
-    # class embeddings, class labels, and client weights
-    x, y, w = [], [], []
-    for m, cw in zip(client_models, client_weights):
-        wb = torch.cat((m.logits.weight[classes], m.logits.bias[classes].view(-1, 1)), axis = 1).detach()
-        x.append(wb)
-        y += classes
-        w += [cw] * num_update_class
-    x = torch.cat(x)
-    assert(len(x) == len(y) == len(w)) # x, y, w should have same length
-
-    # fit SVM
-    C = (num_global_epoch - current_global_epoch) / num_global_epoch # decreasing C successively --> increasing number of support vectors successively
-    clf = svm.SVC(kernel = 'linear', max_iter = 50, tol = 1e-3, C = C)
-    clf.fit(x, y)
-
-    # collect support vectors and their weights
-    SVCs = {class_id : [] for class_id in classes}
-    ws   = {class_id : [] for class_id in classes}
-    for svc_id in clf.support_:
-        svc   = x[svc_id]
-        svc_w = w[svc_id]
-        class_id = y[svc_id]
-        
-        SVCs[class_id].append(svc)
-        ws  [class_id].append(svc_w)
-
-    # aggregate support vectors and update logit weight as well as logit bias
-    if agg_svc:
-        with torch.no_grad():
-            for class_id in classes:
-                new_wb = weighted_avg(SVCs[class_id], ws[class_id])
-                global_model.logits.weight[class_id] = new_wb[:-1]
-                global_model.logits.bias  [class_id] = new_wb[-1]
-
-    # apply spreadout regularization
-    if spreadout:
-        loss = 0
-        h_id = 0 # id for hyperplane
-        for class_a_idx in range(num_update_class):
-            class_a = classes[class_a_idx]
-            w_a = torch.cat([global_model.logits.weight[class_a], global_model.logits.bias[class_a].view(-1)])
-            
-            for class_b_idx in range(class_a_idx + 1, num_update_class):
-                class_b = classes[class_b_idx]
-                w_b = torch.cat([global_model.logits.weight[class_b], global_model.logits.bias[class_b].view(-1)])
-
-                hyperplane_ab = torch.tensor(clf.coef_[h_id]).float().to(device)
-                similarity = torch.exp(- ((torch.dot(w_a - w_b, hyperplane_ab) / hyperplane_ab.norm()) ** 2) / 2)
-                loss += similarity
-
-                h_id += 1
-
-        loss.backward()
-        logits_optim.step()
-        logits_optim.zero_grad()
-
-# def SCAFFOLD(global_model: torch.nn.Module, 
-#            client_models: list[torch.nn.Module], 
-#            client_weights: list[int], 
-#            global_optim: torch.optim, 
-#            logits_optim: torch.optim, 
-#            *_) -> None:
-    
