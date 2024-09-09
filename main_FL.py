@@ -2,7 +2,7 @@ import torch
 import wandb
 
 # self-defined functions
-from server import federated_learning
+from fl.server import federated_learning
 from utils import seed, Args, get_clients_and_model, switch_FL, default_setting
 
 def main_FL(args: object):
@@ -47,7 +47,7 @@ if __name__ == '__main__':
             args.name += str(args.client_optim).split('.')[-1][:-2] + ' ' + str(args.client_lr)
         case 'FedAdam' | 'FedAMS':
             args.name += str(args.global_optim).split('.')[-1][:-2] + ' ' + str(args.global_lr)
-        case 'FedAwS' | 'Ours':
+        case 'FedAwS':
             args.name += str(args.logits_optim).split('.')[-1][:-2] + ' ' + str(args.logits_lr)
         case _:
             raise Exception("wrong switch_FL:", args.switch_FL)

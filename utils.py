@@ -62,7 +62,7 @@ def Args() -> argparse.Namespace:
     parser.add_argument('-c_op', '--client_optim', default = torch.optim.SGD, help = 'client optimizer')
                     
     # general parameters for FL
-    parser.add_argument('-fl', '--switch_FL', type = str, default = 'FedAvg', help = 'FL algorithm, from FedAvg, FedAdam, FedAMS, FedProx, MOON, FedAwS, Ours')
+    parser.add_argument('-fl', '--switch_FL', type = str, default = 'FedAvg', help = 'FL algorithm, from FedAvg, FedAdam, FedAMS, FedProx, MOON, FedAwS')
     parser.add_argument('-c_bs', '--client_bs', type = int, default = 8, help = 'batch size for client data loader')
     parser.add_argument('-C', '--client_C', type = int, default = 8, help = 'number of participating clients in each aggregation round')
     parser.add_argument('-E', '--client_epoch', type = int, default = 1, help = 'number of client local training epochs')
@@ -71,9 +71,8 @@ def Args() -> argparse.Namespace:
     parser.add_argument('-g_lr', '--global_lr', type = float, default = 1e-3, help = 'global learning rate')
     parser.add_argument('-g_op', '--global_optim', default = torch.optim.Adam, help = 'global optimizer')
     
-    # for ours
+
     parser.add_argument('--base_agg', type = str, default = 'FedAvg', help = 'basic aggregation method for non-logit layers for our method')
-    parser.add_argument('--agg_svc', type = bool, default = True, action = argparse.BooleanOptionalAction, help = 'whether aggregating support vectors or all class embeddings for our method')
     parser.add_argument('--spreadout', type = bool, default = True, action = argparse.BooleanOptionalAction, help = 'whether conduing spread-out regularization for our method')
     parser.add_argument('--class_C', type = float, default = 1.0, help = 'proportion of classes being aggregated for our method')
     parser.add_argument('-l_lr', '--logits_lr', type = float, default = 1e-2, help = 'global learning rate for logit layer for our method')
@@ -229,9 +228,6 @@ def switch_FL(args: argparse.Namespace) -> None:
 
         case 'FedAwS':
             args.fed_agg = 'FedAwS'
-
-        case 'Ours':
-            args.fed_agg = 'Ours'
             
         case _:
             raise Exception("wrong switch_FL:", args.switch_FL)
