@@ -1,5 +1,5 @@
 # bash code for reproducing our experiments
-for project in femnist # celeba shakespeare covid19
+for project in femnist # celeba shakespeare
 do
     for seed in 0 1 2 3 4
     do
@@ -12,7 +12,6 @@ do
             python main_FL.py -p $project -seed $seed -fl FedProx -C $c -E $e
             python main_FL.py -p $project -seed $seed -fl MOON -C $c -E $e
             python main_FL.py -p $project -seed $seed -fl FedAwS -C $c -E $e
-            python main_FL.py -p $project -seed $seed -fl Ours -C $c -E $e
         done
 
         c=8
@@ -24,7 +23,6 @@ do
             python main_FL.py -p $project -seed $seed -fl FedProx -C $c -E $e
             python main_FL.py -p $project -seed $seed -fl MOON -C $c -E $e
             python main_FL.py -p $project -seed $seed -fl FedAwS -C $c -E $e
-            python main_FL.py -p $project -seed $seed -fl Ours -C $c -E $e
         done
     done
 done
