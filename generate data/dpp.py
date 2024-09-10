@@ -21,7 +21,7 @@ def Args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     
     # path parameters
-    parser.add_argument('--file_path', type = str, default = '../data/imbalanced/test/celeba_data_test_invdpp_s=50.pickle', help = 'celeba train json path')
+    parser.add_argument('--file_path', type = str, default = '../data/imbalanced/train/celeba_data_train.pickle', help = 'celeba train json path')
     parser.add_argument('--split' , type = str, default = 'train'  , help = 'dataset split')
     parser.add_argument('--dataset' , type = str, default = 'celeba'  , help = 'dataset name')
     parser.add_argument('--min_sample' , type = int, default = '64'  , help = 'dataset')
@@ -39,8 +39,10 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
     with open(file_path,'rb') as f:
      data_dict=pickle.load(f)
      for user,data in data_dict.items():
-      data_x=data['x']
-      all_xs.append(np.array(data_x))
+      data_x=np.array(data['x'])
+      if dataset==('cifar10' or 'celeba'):
+        data_x=np.array([np.array(x).reshape(shape[1],shape[2],3).mean(axis=2).flatten() for x in data_x])
+      all_xs.append(data_x)
       data_y=data['y']
       all_ys.append(np.array(data_y))
    
@@ -51,14 +53,19 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
     for user, num_sample in zip(temp_data_dict['users'], temp_data_dict['num_samples']):
         xs=[]
         for x in temp_data_dict['user_data'][user]['x']:
-            xs.append(np.array(x))
-            all_xs.append(np.array(x))
+            x=np.array(x)
+            if dataset==('cifar10' or 'celeba'):
+              x_2d=x.reshape(shape[1],shape[2],3).mean(axis=2).flatten()
+            xs.append(x)
+            all_xs.append(x_2d)
         ys = np.array(data['user_data'][user]['y'])
         all_ys.append(ys)
         data_dict[user] = {'x' : xs, 'y' : ys}
    
    x_train = np.concatenate(all_xs,axis=0)
-   x_train = x_train.reshape(len(x_train),shape[1],shape[2])
+   sigma_x=np.max(x_train)-np.min(x_train)
+   max_x=np.max(x_train)
+   x_train = (x_train-max_x)/sigma_x
    y_train = np.concatenate(all_ys,axis=0)
    classes=np.unique(y_train)
    print(x_train.shape,y_train.shape)
@@ -77,8 +84,6 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         for x in data['x']:
             if dataset=='shakespeare':
               x=np.array(x,dtype=np.int64)
-            else:
-              x=np.array(x)
             x = x.reshape(shape)
             xs_final.append(x)
         ys_final = data['y']
@@ -89,21 +94,25 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         logger.debug(f'{xs_flattened.shape},{ys_flattened.shape}')
         for i,clss in enumerate(classes):
          client_x=xs_flattened[ys_flattened==clss]
+         client_x_2d=np.array([np.array(img).reshape(shape[1],shape[2],3).mean(axis=2).flatten() for img in client_x])
+         max_client=np.max(client_x_2d)
+         sigma_client=max_client-np.min(client_x_2d)
+         client_x_2d=(client_x_2d-max_client)/sigma_client
          clusters_all=data_points_clss_wise[i]
          all_data_points_clss=np.sum([len(clusters_all[j]) for j in range(len(data_points_clss_wise[i]))])
          ratio_clusters_all=[(len(clusters_all[j])/all_data_points_clss) for j in range(len(data_points_clss_wise[i]))]
          print(f"Class {clss},Shape={client_x.shape}")
          #logging.debug(f'Class {i},Shape={client_x.shape}')
          
-         if(client_x.shape[0] < 10):
+         if(client_x_2d.shape[0] < 10):
            difference_sample=np.ceil(np.array(ratio_clusters_all)*10)
            difference_sample=[int(x) for x in difference_sample]
         
          else:
           # StreamKmeans- 1 iter clusters
           kmeans_x = KMeans(n_clusters = k_clusters, init=means_clss_wise[i], max_iter = 1, random_state = 42)
-          kmeans_x.fit(client_x)
-          clusters = [client_x[kmeans_x.labels_== i] for i in range(k_clusters)]
+          kmeans_x.fit(client_x_2d)
+          clusters = [client_x_2d[kmeans_x.labels_== i] for i in range(k_clusters)]
 
           # Naive-approach for Stream Kmeans - Alternate method
           # clusters=[[]] for _ in k_clusters]
@@ -113,10 +122,10 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
           #           clusters[clust_i].append(data_point)
 
 
-          ratio_clusters_client=[(len(clusters[j])/client_x.shape[0]) for j in range(len(clusters))]
+          ratio_clusters_client=[(len(clusters[j])/client_x_2d.shape[0]) for j in range(len(clusters))]
           difference_ratio=np.array([(a-b) if (a-b)>0 else 0 for a,b in zip(ratio_clusters_all,ratio_clusters_client)])
           del clusters
-          difference_sample=np.ceil(difference_ratio*client_x.shape[0])
+          difference_sample=np.ceil(difference_ratio*client_x_2d.shape[0])
           difference_sample=[int(x) for x in difference_sample]
          for k in range(k_clusters):
             if(difference_sample[k] != 0):
@@ -124,9 +133,12 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
              logger.debug('adjusting distribution for each client')
              extra_sample=np.random.multivariate_normal(mean=means_clss_wise[i][k], cov=sigma_clss_wise[i][k], size=difference_sample[k]).astype(np.float32)
              for sample in extra_sample:
+                sample=(sample*sigma_x)+max_x
                 if(dataset=='shakespeare'):
                  sample_list=[c if c<=79 or c>=0 else 0 for c in sample]
                  samples_tensor=np.array(sample_list,dtype=np.int64).reshape(shape)
+                if(dataset=='cifar10' or 'celeba'):
+                  samples_tensor=np.stack([sample]*3).reshape(shape)
                 else:
                  samples_tensor=np.array(sample).reshape(shape)
                 xs_final.append(samples_tensor)
@@ -136,6 +148,9 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
              logger.debug(f"added {difference_sample[k]} samples in user {user}")
 
          del client_x
+         del sigma_client
+         del max_client
+         del client_x_2d
          del clusters_all
          del difference_sample
 
@@ -145,19 +160,20 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         logger.debug(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
         print(f'User {user} shape: x is {xs_final.shape}, y is {ys_final.shape}')
 
-   with open(f'../data/balanced/{split}/{dataset}_balanced_100_clients.pickle', 'wb') as f:
+   with open(f'../data/balanced/{split}/{dataset}_new_balanced_clients.pickle', 'wb') as f:
      pickle.dump(data_dict, f)
 
 def get_gmm_clusters(X_class_wise,Y_class_wise,k_clusters):
     cluster_means_class_wise,cluster_sigma_class_wise,cluster_weights_class_wise,clusters_class_wise=[],[],[],[]
     for x,y in zip(X_class_wise,Y_class_wise):
       clusters=[]
-      gmm = GaussianMixture(n_components=k_clusters,init_params='k-means++', covariance_type='full',reg_covar=1e-3,max_iter=10)
+      gmm = GaussianMixture(n_components=k_clusters,init_params='k-means++', covariance_type='full',reg_covar=1e-3,max_iter=5)
       if(len(x)<k_clusters):
         x=np.concatenate([x]*k_clusters)
       gmm.fit(x)
+      labels=gmm.predict(x)
       for cnt in range(k_clusters):
-        clusters.append(x[gmm.labels==cnt])
+        clusters.append(x[labels==cnt])
       means=gmm.means_
       covariances=gmm.covariances_
       weights=gmm.weights_
