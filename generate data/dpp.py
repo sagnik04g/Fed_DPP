@@ -39,8 +39,10 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
     with open(file_path,'rb') as f:
      data_dict=pickle.load(f)
      for user,data in data_dict.items():
+      if(len(data['x'<1])):
+        continue
       data_x=np.array(data['x'])
-      if dataset==('cifar10' or 'celeba'):
+      if dataset=='cifar10' or dataset=='celeba':
         data_x=np.array([np.array(x).reshape(shape[1],shape[2],3).mean(axis=2).flatten() for x in data_x])
       all_xs.append(data_x)
       data_y=data['y']
@@ -54,7 +56,7 @@ def get_balanced_partitions(file_path:str,split:str='train',dataset:str='mnist',
         xs=[]
         for x in temp_data_dict['user_data'][user]['x']:
             x=np.array(x)
-            if dataset==('cifar10' or 'celeba'):
+            if dataset=='cifar10' or dataset=='celeba':
               x_2d=x.reshape(shape[1],shape[2],3).mean(axis=2).flatten()
             xs.append(x)
             all_xs.append(x_2d)
